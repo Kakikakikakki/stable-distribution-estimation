@@ -1,7 +1,4 @@
-# pythonによる安定分布の推定手法
-# version 1.0 2020/9/20
-# version 1.1 2020/9/23
-# version 1.2 2020/10/24
+# version 1.0 2020/10/24
 """
 Shinji Kakinaka and Ken Umeno. Flexible Two-point Selection Approach for Characteristic Function-based
 Parameter Estimation of Stable Laws, Chaos, 30, 073128 (2020) https://doi.org/10.1063/5.0013148
@@ -21,16 +18,7 @@ import time
 import levy
 from scipy.stats import levy_stable
 
-#seaborn style
-#seaborn settings
-#sns.set(style="whitegrid", palette="muted", color_codes=True)
-sns.set_style("whitegrid", {'grid.linestyle': '--'})
-
-# optional settings
-#from scipy.stats import norm
-#from scipy.stats import rankdata
-
-# calculate weighted 特性関数
+# calculate weighted characteristic function
 def phi(X, k):
     CF = 0.0
     for i in range(len(X)):
@@ -51,7 +39,7 @@ def F_gammaW(X, k0, k1):
     cf0 = phi(X, k0)
     cf1 = phi(X, k1)
     gamma = np.exp((np.log(k0)*np.log(-(np.log(cf1).real))-np.log(k1)*np.log(-(np.log(cf0).real)))/(np.log(-(np.log(cf0).real))-np.log(-(np.log(cf1).real))))
-    assert gamma > 0, '期待するガンマは正, 出力値[{0}]'.format(gamma)
+    assert gamma > 0, 'gamma should take positive values, you have [{0}]'.format(gamma)
     return gamma
 
 def F_betaW(X, k0, k1, alpha, gamma):
@@ -76,17 +64,17 @@ def F_deltaW(X, k0, k1, alpha):
         delta = (k1**alpha*np.log(cf0).imag-k0**alpha*np.log(cf1).imag)/(k0*k1**alpha-k1*k0**alpha)
     return delta
 
-# 最適なフーリエ空間点k1を見つける
+# find k1
 def g(alpha, tau=2.5):
     del_alpha = 0.01
-    # 関数定義
+    # define functions
     f = lambda x: (alpha*x**(alpha-1)+tau)*np.exp(-(x**alpha+tau*x)) - ((alpha+del_alpha)*x**(alpha+del_alpha-1)+tau)*np.exp(-(x**(alpha+del_alpha)+tau*x))
     df = lambda x: (alpha*(alpha-1)*x**(alpha-2)-(alpha*x**(alpha-1)+tau)**2)*np.exp(-(x**alpha+tau*x)) + (((alpha+del_alpha)*x**(alpha+del_alpha-1)+tau)**2-(alpha+del_alpha)*(alpha+del_alpha-1)*x**(alpha+del_alpha-2))*np.exp(-(x**(alpha+del_alpha)+tau*x))
     
-    # 初期値の設定
+    # set initial points
     x0 = 0.01*alpha**1.5*np.exp(alpha)
     
-    # ニュートン法で解を計算
+    # calculate using Newton's method
     while True:
         x = x0 - f(x0) / df(x0)
         if abs(x-x0) < 0.00001:
@@ -94,17 +82,15 @@ def g(alpha, tau=2.5):
         else:
             x0 = x
     if x > 1:
-        assert x != 1, 'αとフーリエ空間点との関係性を表す関数gは1になってはいけない, 出力値[{0}]'.format(x)
+        assert x != 1, 'g should not take 1, you get [{0}]'.format(x)
         x = 0.2
     return x
 
 # estimate stable parameters from (weighted) characteristic function
-
 def est_stablepars(X, gamma0):
-    #　入力: データ, データの分散（パラメータを推定するのにある程度妥当な初期スケールが必要だから）
     # Estimate the "temporary gamma"
     bound = 0.5
-    k_begin, k_end = (1.0-bound)/gamma0, (1.0+bound)/gamma0 # この範囲で適切なフーリエ空間点k_0を探索する
+    k_begin, k_end = (1.0-bound)/gamma0, (1.0+bound)/gamma0 # find k_0 within this range
     pars = np.zeros(4)
     
     k = np.arange(k_begin, k_end, (k_end-k_begin)/100)
@@ -122,7 +108,7 @@ def est_stablepars(X, gamma0):
     gamma_tmp # step 1
         
     # step 2
-    k0_rough = 0.05/gamma_tmp # ここの分子の値は初期値なので1以下であれば何でも良い
+    k0_rough = 0.05/gamma_tmp # any small number should be fine
     k1_rough = 1/gamma_tmp
         
     # step 3
@@ -150,9 +136,4 @@ def est_stablepars(X, gamma0):
     return pars
 
 def estpar(X):
-    return est_stablepars(X, np.var(X)*100) # gamma0 の値の決め方は任意性があるかもしれない
-    
-########################################
-# 実行
-# data は array型
-# estpar(data)
+    return est_stablepars(X, np.var(X)*100) # change gamma0 if necessary  
